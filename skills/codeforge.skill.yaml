@@ -1,0 +1,220 @@
+# ═══════════════════════════════════════════════════════════════
+# SKILL: CodeForge — GrowBiz Media Engineering Operations
+# GrowBiz Media · OpenClaw AgentSkill · ClawHub-compatible
+# ═══════════════════════════════════════════════════════════════
+
+name: codeforge
+version: "2.0.0"
+description: >
+  Engineering operations for GrowBiz Media's tech products:
+  ClipIQ (content automation), Vaptlux (AI video editing),
+  GrowBiz Magazine (Next.js + Sanity), GrowBiz Services (SEO platform),
+  DoodleType (digital products), and ZecaOS (AI assistant).
+  Plus this very repo — frankomaticlaw. Yes, we're meta.
+author: rorezend
+license: MIT
+
+inputs:
+  - name: action
+    type: enum
+    options: [sync, generate, review, pr_create, pr_merge,
+             issue_create, issue_update, deploy, explain,
+             refactor, pipeline_status, content_engine]
+    required: true
+
+  - name: product
+    type: enum
+    options: [clipiq, vaptlux, magazine, services-platform,
+             doodletype, zecaos, frank-jarbas, other]
+    required: true
+
+  - name: repo
+    type: string
+    description: "Format: owner/repo"
+    required: true
+
+  - name: branch
+    type: string
+    default: main
+
+  - name: file_path
+    type: string
+    required: false
+
+  - name: code_content
+    type: string
+    required: false
+
+  - name: language
+    type: enum
+    options: [python, typescript, javascript, yaml, markdown,
+              go, rust, nextjs, sanity-groq, other]
+    required: false
+
+  - name: commit_message
+    type: string
+    required: false
+
+  - name: issue_body
+    type: string
+    required: false
+
+outputs:
+  - name: result
+    type: object
+    schema:
+      action_completed: string
+      generated_code: string
+      review_feedback: string
+      pr_url: string
+      issue_url: string
+      deploy_status: string
+      pipeline_health: object
+      approval_status: enum[pending, approved, executed]
+
+logic:
+  type: multi_step
+  steps:
+    sync:
+      prompt_template: |
+        Sync with {product} repo: {repo} on branch {branch}.
+        Report: recent commits, open PRs, open issues, CI status.
+        Context by product:
+        - clipiq: Next.js 14, content pipeline, Teams integration
+        - vaptlux: AI video analysis, multi-camera processing
+        - magazine: Next.js 14 + Sanity CMS + Vercel
+        - services-platform: SEO tools, client dashboards
+        - zecaos: AI assistant, Microsoft ecosystem
+        Keep it short — Rod wants the headline, not the novel.
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    generate:
+      prompt_template: |
+        Generate code for {product} ({repo}).
+        Language: {language} | File: {file_path}
+        Requirements: {code_content}
+
+        PRODUCT CONTEXT:
+        - clipiq: Hook scoring, caption generation, clip selection,
+          scheduled publishing (IG, TikTok, YT Shorts, X).
+          Karine approves editorially.
+        - vaptlux: Multi-camera angle selection, audio analysis,
+          visual quality scoring, autonomous cut decisions.
+        - magazine: Sanity CMS schemas, Next.js pages, AI content pipeline
+          (YouTube->article + trending->article). Vercel deployment.
+        - services-platform: Client dashboards, SEO tracking,
+          keyword research automation, review request sequences.
+        - zecaos: Microsoft-aligned, configurable AI assistant.
+
+        Write clean, documented code. No over-engineering.
+        Rod's rule: if a junior can't read it, rewrite it.
+      model: minimax-m2.7:cloud
+      escalation_model: deepseek-chat
+
+    review:
+      prompt_template: |
+        Review code from {product} ({repo}/{file_path}):
+        {code_content}
+        Check: bugs, security, performance, readability.
+        Extra checks by product:
+        - clipiq/magazine: Vercel deployment compatibility, Sanity schema validity
+        - services-platform: client data security, API rate limiting
+        - vaptlux: video processing performance, memory management
+        Be direct. "This is fine" or "This will break because..."
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    content_engine:
+      prompt_template: |
+        Check GrowBiz Magazine content engine status.
+        Pipeline 1: YouTube/Instagram interview -> polished article
+        Pipeline 2: Trending topics -> research-based articles
+        Both -> Sanity CMS draft -> editorial review -> publish
+        Report: articles in pipeline, drafts pending review,
+        published this week, SEO performance of recent articles.
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    pipeline_status:
+      prompt_template: |
+        Cross-product engineering status for GrowBiz Media:
+        - ClipIQ: content pipeline health, clips processed, queue
+        - Vaptlux: development progress, latest milestone
+        - Magazine: Sanity CMS content queue, Vercel deploy status
+        - Services: client dashboard uptime, SEO job queue
+        - ZecaOS: development status, Microsoft fund progress
+        Give Rod the executive summary. 5 lines max.
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    pr_create:
+      requires_approval: true
+      approval_by: [rod]
+      model: minimax-m2.7:cloud
+
+    pr_merge:
+      requires_approval: true
+      approval_by: [rod]
+
+    issue_create:
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    issue_update:
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    deploy:
+      requires_approval: true
+      approval_by: [rod]
+      prompt_template: |
+        Deploy {product} from {repo}/{branch}.
+        Pre-flight: tests passing? PR merged? Vercel preview OK?
+        Product-specific checks:
+        - magazine: Sanity schema migrations? Content preview working?
+        - clipiq: Teams approval flow intact? Publishing queue paused?
+        - services-platform: client dashboards accessible? No active SEO jobs?
+      model: minimax-m2.7:cloud
+
+    explain:
+      model: minimax-m2.7:cloud
+      auto_execute: true
+
+    refactor:
+      model: minimax-m2.7:cloud
+      escalation_model: deepseek-reasoner
+
+access_control:
+  frank:
+    allowed: [sync, generate, review, pr_create, pr_merge,
+              issue_create, issue_update, deploy, explain,
+              refactor, pipeline_status, content_engine]
+  jarbas:
+    allowed: [sync, pipeline_status, content_engine]
+    note: "Karine can check status + content engine, code ops are Rod's domain"
+
+metadata:
+  category: development
+  tags: [github, clipiq, vaptlux, magazine, sanity, nextjs, vercel,
+         seo-platform, zecaos, multi-product]
+
+triggers:
+  - keyword: "code"
+  - keyword: "github"
+  - keyword: "deploy"
+  - keyword: "clipiq pipeline"
+  - keyword: "magazine content"
+  - keyword: "vaptlux"
+  - keyword: "engineering status"
+
+permissions:
+  - github_api_read
+  - github_api_write
+  - vercel_api
+  - sanity_api
+  - memory_read
+  - memory_write
+
+preferred_model: minimax-m2.7:cloud
+escalation_model: deepseek-chat

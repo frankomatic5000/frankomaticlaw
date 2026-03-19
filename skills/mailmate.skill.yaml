@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════
+# SKILL: MailMate — GrowBiz Media Email Operations
+# GrowBiz Media · OpenClaw AgentSkill · ClawHub-compatible
+# ═══════════════════════════════════════════════════════════════
+
+name: mailmate
+version: "2.0.0"
+description: >
+  Email triage, drafting, and sending across all GrowBiz Media
+  operations. Handles everything from Imigrou collaboration requests
+  to GrowBiz Services client outreach to grant application follow-ups.
+  Knows the difference between Rod's voice and Karine's voice.
+author: rorezend
+license: MIT
+
+inputs:
+  - name: action
+    type: enum
+    options: [triage, draft, reply, send, search, summarize,
+             outreach_sequence, grant_followup]
+    required: true
+
+  - name: mailbox
+    type: enum
+    options: [rod-personal, karine-personal, growbiz-general,
+             growbiz-services, imigrou, studios]
+    default: growbiz-general
+
+  - name: to
+    type: string
+    required: false
+
+  - name: subject
+    type: string
+    required: false
+
+  - name: body
+    type: string
+    required: false
+
+  - name: tone
+    type: enum
+    options: [formal, friendly, brief, grant-style, sales-outreach,
+             collaboration-pitch, diaspora-warm]
+    default: friendly
+
+  - name: language
+    type: enum
+    options: [en, pt-br, bilingual]
+    default: en
+
+  - name: priority_filter
+    type: enum
+    options: [all, urgent, unread, flagged, grant-related, client-related]
+    default: unread
+
+outputs:
+  - name: result
+    type: object
+    schema:
+      action_completed: string
+      triage_summary: string
+      draft_content: string
+      search_results: array
+      approval_status: enum[pending, approved, sent]
+
+logic:
+  type: multi_step
+  steps:
+    triage:
+      prompt_template: |
+        Scan {mailbox} mailbox. Filter: {priority_filter}.
+        Categorize:
+        - 🔴 Urgent (client issues, grant deadlines, collaboration offers)
+        - 🟡 Needs reply (partnerships, inquiries, follow-ups)
+        - 🟢 FYI (newsletters, notifications, updates)
+        - 🗑️ Spam/noise
+        Give a 3-line summary. Flag anything revenue-related.
+      model: qwen3.5:cloud
+      auto_execute: true
+
+    draft:
+      prompt_template: |
+        Draft email from {mailbox}.
+        To: {to} | Subject: {subject}
+        Context: {body}
+        Tone: {tone} | Language: {language}
+
+        VOICE RULES:
+        - rod-personal/growbiz-general: Rod's voice. Short, direct, slightly nerdy.
+        - karine-personal/imigrou/studios: Karine's voice. Warm, professional,
+          culturally aware. pt-BR if recipient is Brazilian.
+        - growbiz-services: Sales-professional. Value-first, no sleaze.
+          Lead with the problem we solve, not features.
+        - grant-style: Professional but human. Show impact, numbers, vision.
+          Reference GrowBiz Media's immigrant founder story when relevant.
+      model: qwen3.5:cloud
+
+    outreach_sequence:
+      prompt_template: |
+        Create a 3-email outreach sequence for GrowBiz Services.
+        Target: {body}
+        Tone: {tone}
+
+        Email 1: Problem awareness (their SEO is broken, here's proof)
+        Email 2: Value proposition (what we do, pricing hint)
+        Email 3: Soft close (free audit offer, no pressure)
+
+        Rod's rule: if it sounds like spam, rewrite it.
+        These are real small businesses. Respect their inbox.
+      model: qwen3.5:cloud
+      escalation_model: deepseek-chat
+
+    grant_followup:
+      prompt_template: |
+        Draft grant follow-up email.
+        Grant: {subject}
+        Context: {body}
+        Tone: grant-style
+
+        Reference: NJEDA Small Business Improvement Grant, IFundWomen,
+        or other active applications. Be specific about milestones
+        and equipment (Sony FX3, studio buildout, ClipIQ development).
+      model: qwen3.5:cloud
+
+    reply:
+      prompt_template: |
+        Reply to this email thread from {mailbox}.
+        Context: {body} | Tone: {tone} | Language: {language}
+        Match the voice of whoever owns {mailbox}.
+        Under 150 words unless it's a grant or client proposal.
+      model: qwen3.5:cloud
+
+    send:
+      requires_approval: true
+      approval_by: [rod, karine]
+
+    search:
+      model: qwen3.5:cloud
+      auto_execute: true
+
+    summarize:
+      model: qwen3.5:cloud
+      auto_execute: true
+
+access_control:
+  frank:
+    allowed: [triage, draft, reply, send, search, summarize,
+              outreach_sequence, grant_followup]
+  jarbas:
+    allowed: [triage, draft, reply, send, search, summarize,
+              outreach_sequence, grant_followup]
+    note: "Karine has full email access — she runs Imigrou + Studios comms"
+
+metadata:
+  category: communication
+  tags: [email, outreach, grants, sales, imigrou, client-comms]
+
+triggers:
+  - keyword: "email"
+  - keyword: "inbox"
+  - keyword: "outreach"
+  - keyword: "grant follow"
+  - keyword: "draft email"
+  - keyword: "client email"
+
+permissions:
+  - email_api_read
+  - email_api_write
+  - memory_read
+
+preferred_model: qwen3.5:cloud

@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════
+# MEMORY LAYERS CONFIGURATION
+# GrowBiz Media · OpenClaw Platform
+# ═══════════════════════════════════════════════════════════════
+
+memory:
+  backend: markdown
+  base_directory: memory/
+
+  layers:
+    session:
+      type: ephemeral
+      access: [frank, jarbas]
+      persistence: conversation_lifetime
+      description: "Current conversation context window"
+      auto_clear: true
+
+    frank_personal:
+      type: persistent
+      file: memory/frank-personal.md
+      access:
+        frank: [read, write]
+        jarbas: []
+      description: >
+        Rod's private notes. Business strategy, credentials references,
+        grant drafts, sensitive data. Jarbas cannot read this.
+
+    family_shared:
+      type: persistent
+      file: memory/family-shared.md
+      access:
+        frank: [read, write]
+        jarbas: [read, write]
+      description: >
+        Shared family context. Calendars, budgets, family tasks,
+        kids schedules, shared notes. Both agents read and write.
+
+    project_tagged:
+      type: persistent
+      directory: memory/projects/
+      file_pattern: "TASK-{id}.md"
+      access:
+        frank: [read, write]
+        jarbas: [read]
+      ttl_days: 30
+      auto_prune: true
+      description: >
+        Per-task context files. Created automatically when a task
+        needs persistent context. Cached summaries for DeepSeek reuse.
+        Auto-pruned after 30 days of inactivity.
+      cache_format: |
+        # TASK-{id}: {title}
+        Brand: {brand}
+        Owner: {owner}
+        Summary: {summary}
+        Last updated: {timestamp}

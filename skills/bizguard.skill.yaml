@@ -1,0 +1,229 @@
+# ═══════════════════════════════════════════════════════════════
+# SKILL: BizGuard — GrowBiz Media Financial Operations
+# GrowBiz Media · OpenClaw AgentSkill · ClawHub-compatible
+# ═══════════════════════════════════════════════════════════════
+
+name: bizguard
+version: "2.0.0"
+description: >
+  Financial operations for GrowBiz Media portfolio. Tracks revenue
+  across GrowBiz Services (recurring), Studios (project), and future
+  product income (ClipIQ, Vaptlux). Manages grant applications
+  (NJEDA, IFundWomen), equipment tracking, and tax compliance.
+  The skill that keeps Rod and Karine's empire financially sound.
+author: rorezend
+license: MIT
+
+inputs:
+  - name: action
+    type: enum
+    options: [dashboard, invoice, expense, grant_track, grant_apply,
+             tax_remind, report, forecast, reconcile, client_revenue,
+             equipment_track]
+    required: true
+
+  - name: brand
+    type: enum
+    options: [growbiz-media, growbiz-services, growbiz-studios,
+             imigrou, clipiq, vaptlux, doodletype, zecaos, all]
+    default: all
+
+  - name: period
+    type: enum
+    options: [today, this_week, this_month, this_quarter, this_year, custom]
+    default: this_month
+
+  - name: custom_range
+    type: object
+    schema:
+      start: date
+      end: date
+    required: false
+
+  - name: grant_id
+    type: string
+    required: false
+
+  - name: client_id
+    type: string
+    required: false
+
+  - name: amount
+    type: number
+    required: false
+
+  - name: description
+    type: string
+    required: false
+
+outputs:
+  - name: result
+    type: object
+    schema:
+      action_completed: string
+      dashboard_summary: string
+      grant_status: object
+      tax_reminders: array
+      report_data: object
+      forecast: string
+      client_mrr: number
+      equipment_registry: array
+      approval_status: enum[pending, approved, written]
+
+logic:
+  type: multi_step
+  steps:
+    dashboard:
+      prompt_template: |
+        Pull QuickBooks summary for {period}, filtered by {brand}.
+        Show:
+        - Revenue by brand (Services MRR, Studios projects, other)
+        - Total expenses (separate: equipment, software, production, marketing)
+        - Net cash flow
+        - Outstanding invoices
+        - Grant money received vs. pending
+        Format: clean, 6 lines max. Rod doesn't read spreadsheets.
+      model: qwen3.5:cloud
+      auto_execute: true
+
+    invoice:
+      requires_approval: true
+      approval_by: [rod, karine]
+      prompt_template: |
+        Create invoice for {brand}.
+        Client/Description: {description}
+        Amount: ${amount}
+        If GrowBiz Services: use subscription template ($297/$497/$997 tiers)
+        If Studios: use project-based template with deliverables
+      model: qwen3.5:cloud
+
+    expense:
+      requires_approval: true
+      approval_by: [rod, karine]
+      approval_cap: 500
+      prompt_template: |
+        Log expense for {brand}: {description} — ${amount}
+        Auto-categorize: equipment / software / production / marketing / travel / other
+        Flag if over monthly budget for {brand}.
+        Flag if equipment (track in equipment registry).
+      model: qwen3.5:cloud
+
+    grant_track:
+      prompt_template: |
+        Status update on grant {grant_id}.
+        Active grants to track:
+        - NJEDA Small Business Improvement Grant (Studios equipment)
+        - IFundWomen (production capacity)
+        - Any new applications
+        Check: deadline, submission status, payment, next action items.
+        Be specific. This is real money for real equipment.
+      model: qwen3.5:cloud
+      escalation_model: deepseek-chat
+      auto_execute: true
+
+    grant_apply:
+      requires_approval: true
+      approval_by: [rod]
+      prompt_template: |
+        Prepare grant application materials for {description}.
+        Use GrowBiz Media narrative:
+        - Immigrant-founded family business
+        - Media + technology intersection
+        - Community impact (Brazilian diaspora, immigrant entrepreneurs)
+        - Specific equipment/capacity needs
+        - Revenue trajectory and business model
+        Model: professional but deeply human. Show the real story.
+      model: deepseek-chat
+      cache_policy: mandatory
+
+    tax_remind:
+      prompt_template: |
+        List upcoming tax deadlines for {period}.
+        Include: estimated payments, filing dates, state (NJ) vs federal.
+        Flag: quarterly estimates, sales tax (if applicable to Services),
+        equipment depreciation notes.
+        Add buffer warnings (7 days, 3 days, 1 day).
+      model: qwen3.5:cloud
+      auto_execute: true
+      schedule: "every Monday 9am"
+
+    report:
+      prompt_template: |
+        Generate financial report for {brand} over {period}.
+        Include:
+        - P&L by brand
+        - GrowBiz Services: MRR, churn, new clients
+        - Studios: project pipeline, revenue per project
+        - Grant funding: received, pending, applied
+        - Equipment investments vs. depreciation
+        Explain in plain English. Rod and Karine both read this.
+      model: deepseek-chat
+      cache_policy: mandatory
+
+    forecast:
+      prompt_template: |
+        Forecast next quarter for {brand} (or all brands).
+        Model: Services MRR growth trajectory, Studios pipeline,
+        grant funding probability, ClipIQ/Vaptlux pre-revenue burn.
+        Flag risks. Suggest actions. Be honest, not optimistic.
+        This family has two kids and a Pomeranian to feed.
+      model: deepseek-reasoner
+      cache_policy: mandatory
+
+    reconcile:
+      requires_approval: true
+      approval_by: [rod]
+      model: deepseek-chat
+
+    client_revenue:
+      prompt_template: |
+        GrowBiz Services client revenue report for {period}.
+        Show: active clients, MRR per client, churn risk, upsell opportunities.
+        Tier breakdown: $297 / $497 / $997 plans.
+        Flag: overdue invoices, clients approaching contract renewal.
+      model: qwen3.5:cloud
+      auto_execute: true
+
+    equipment_track:
+      prompt_template: |
+        Equipment registry for {brand}.
+        Track: item, purchase date, cost, grant-funded (y/n), depreciation status.
+        Key items: Sony FX3 camera system, studio lighting, audio gear, computers.
+      model: qwen3.5:cloud
+      auto_execute: true
+
+access_control:
+  frank:
+    allowed: [dashboard, invoice, expense, grant_track, grant_apply,
+              tax_remind, report, forecast, reconcile, client_revenue,
+              equipment_track]
+  jarbas:
+    allowed: [dashboard, invoice, expense, grant_track, tax_remind,
+              report, client_revenue, equipment_track]
+    blocked: [grant_apply, reconcile, forecast]
+    approval_cap: 500
+
+metadata:
+  category: finance
+  tags: [quickbooks, grants, tax, invoicing, mrr, equipment,
+         njeda, ifundwomen, services-revenue]
+
+triggers:
+  - keyword: "quickbooks"
+  - keyword: "invoice"
+  - keyword: "grant"
+  - keyword: "revenue"
+  - keyword: "MRR"
+  - keyword: "expense"
+  - keyword: "tax"
+  - keyword: "equipment"
+  - keyword: "client revenue"
+
+permissions:
+  - quickbooks_api_read
+  - quickbooks_api_write
+  - memory_read
+  - memory_write
+
+preferred_model: qwen3.5:cloud
+escalation_model: deepseek-chat
