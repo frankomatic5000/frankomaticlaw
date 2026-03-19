@@ -14,13 +14,13 @@
 ## Kids
 
 ### Antonio (12)
-- School: Warren Middle School NJ
-- Activities: Jiu Jitsu, Tennis, Roblox, Coding, Geometry Dash
+- School: _Warren Middle School NJ_
+- Activities: _Jiu Jitsu, Tennis, Roblox, Coding, Geometry Dash_
 - Schedule notes: _TBD_
 
 ### Rebecca (8)
-- School: Angelo L Thomaso Warren NJ
-- Activities: Tennis, Ballet, Dancing, Singing, Roblox, Drawing
+- School: _Angelo L Thomaso Warren NJ_
+- Activities: _Tennis, Ballet, Dancing, Singing, Roblox, Drawing_
 - Schedule notes: _TBD_
 
 ## Shopping Lists
