@@ -1,0 +1,3 @@
+[submodule "openclaw-snapshot/openclaw-snapshot/projects/frankomaticlaw"]
+	path = openclaw-snapshot/openclaw-snapshot/projects/frankomaticlaw
+	url = https://github.com/frankomatic5000/frankomaticlaw
