@@ -1,0 +1,20 @@
+# Environment secrets — NEVER commit
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Node (if needed later)
+node_modules/
+.next/
+
+# Logs
+*.log
+
+# Memory runtime files (task context is auto-generated)
+memory/projects/TASK-*.md
