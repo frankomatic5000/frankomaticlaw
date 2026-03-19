@@ -18,3 +18,6 @@ node_modules/
 
 # Memory runtime files (task context is auto-generated)
 memory/projects/TASK-*.md
+
+# OpenClaw snapshots (contain secrets)
+openclaw-snapshot/
