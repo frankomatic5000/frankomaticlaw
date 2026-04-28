@@ -1,0 +1,748 @@
+# Shopify Admin Skill — Full Manifest
+# OpenClaw AgentSkill Specification
+
+skill:
+  name: shopify_admin
+  version: "1.0.0"
+  description: >
+    Full Shopify Admin API integration via GraphQL. Enables automated product management,
+    order analysis, inventory monitoring, and content generation for GrowBiz Media stores.
+  author: frankomatic
+  license: MIT
+
+transport:
+  type: graphql
+  endpoint: "https://{store_domain}/admin/api/2024-01/graphql.json"
+  authentication:
+    type: oauth2
+    required_scopes:
+      - read_products
+      - write_products
+      - read_orders
+      - read_customers
+      - read_inventory
+    token_endpoint: "https://{store_domain}/admin/oauth/access_token"
+    refresh_strategy: automatic
+  headers:
+    X-Shopify-Access-Token: "{access_token}"
+    Content-Type: "application/json"
+  rate_limit:
+    type: cost_based
+    max_points_per_second: 50
+    retry_strategy: exponential_backoff
+    max_retries: 3
+    base_delay_ms: 1000
+  timeout:
+    connect: 10s
+    request: 30s
+
+webhooks:
+  enabled: true
+  events:
+    - orders/create:
+        handler: handle_order_created
+        description: "Triggered when new order is placed"
+    - products/update:
+        handler: handle_product_updated
+        description: "Triggered when product is modified"
+    - products/create:
+        handler: handle_product_created
+        description: "Triggered when new product is added"
+    - inventory_levels/update:
+        handler: handle_inventory_updated
+        description: "Triggered when inventory changes"
+  endpoint: "/webhooks/shopify/{store_domain}"
+  verification: shopify_hmac
+
+tools:
+  # ============================================
+  # TOOL: get_products
+  # ============================================
+  - name: get_products
+    description: "Retrieve products from Shopify store with filtering"
+    schema:
+      type: object
+      required: [store_domain]
+      properties:
+        store_domain:
+          type: string
+          description: "Shopify store domain (e.g., doodletype.myshopify.com)"
+        limit:
+          type: integer
+          default: 50
+          maximum: 250
+          description: "Number of products to retrieve"
+        query:
+          type: string
+          description: "Search query string"
+        collection_id:
+          type: string
+          description: "Filter by collection ID"
+        status:
+          type: string
+          enum: [ACTIVE, DRAFT, ARCHIVED]
+          description: "Filter by product status"
+        sort_key:
+          type: string
+          enum: [TITLE, CREATED_AT, UPDATED_AT, INVENTORY_TOTAL]
+          default: CREATED_AT
+        reverse:
+          type: boolean
+          default: false
+          description: "Reverse sort order"
+    resolver: getProducts
+    graphql:
+      query: |
+        query GetProducts($first: Int!, $query: String, $sortKey: ProductSortKeys, $reverse: Boolean) {
+          products(first: $first, query: $query, sortKey: $sortKey, reverse: $reverse) {
+            edges {
+              node {
+                id
+                title
+                description
+                handle
+                status
+                vendor
+                productType
+                tags
+                variants(first: 10) {
+                  edges {
+                    node {
+                      id
+                      title
+                      price
+                      sku
+                      inventoryQuantity
+                      selectedOptions {
+                        name
+                        value
+                      }
+                    }
+                  }
+                }
+                images(first: 5) {
+                  edges {
+                    node {
+                      id
+                      url
+                      altText
+                    }
+                  }
+                }
+                createdAt
+                updatedAt
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      variables: |
+        {
+          "first": {{ limit }},
+          "query": "{{ query }}",
+          "sortKey": "{{ sort_key | upper }}",
+          "reverse": {{ reverse }}
+        }
+
+  # ============================================
+  # TOOL: get_orders
+  # ============================================
+  - name: get_orders
+    description: "Retrieve orders from Shopify store with filtering"
+    schema:
+      type: object
+      required: [store_domain]
+      properties:
+        store_domain:
+          type: string
+        limit:
+          type: integer
+          default: 50
+          maximum: 250
+        status:
+          type: string
+          enum: [OPEN, CLOSED, CANCELLED, ANY]
+          default: ANY
+        financial_status:
+          type: string
+          enum: [PENDING, AUTHORIZED, PARTIALLY_PAID, PAID, PARTIALLY_REFUNDED, REFUNDED, VOIDED]
+        fulfillment_status:
+          type: string
+          enum: [FULFILLED, PARTIAL, RESTOCKED, PENDING]
+        created_at_min:
+          type: string
+          format: date-time
+          description: "ISO 8601 datetime"
+        created_at_max:
+          type: string
+          format: date-time
+        sort_key:
+          type: string
+          enum: [CREATED_AT, UPDATED_AT, PROCESSED_AT]
+          default: CREATED_AT
+    resolver: getOrders
+    graphql:
+      query: |
+        query GetOrders($first: Int!, $query: String, $sortKey: OrderSortKeys, $reverse: Boolean) {
+          orders(first: $first, query: $query, sortKey: $sortKey, reverse: $reverse) {
+            edges {
+              node {
+                id
+                name
+                email
+                totalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                subtotalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                financialStatus
+                fulfillmentStatus
+                createdAt
+                processedAt
+                cancelledAt
+                customer {
+                  id
+                  firstName
+                  lastName
+                  email
+                }
+                lineItems(first: 10) {
+                  edges {
+                    node {
+                      title
+                      quantity
+                      originalTotalSet {
+                        shopMoney {
+                          amount
+                        }
+                      }
+                      variant {
+                        id
+                        title
+                        sku
+                      }
+                    }
+                  }
+                }
+                shippingAddress {
+                  address1
+                  city
+                  province
+                  country
+                  zip
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+
+  # ============================================
+  # TOOL: analyze_sales
+  # ============================================
+  - name: analyze_sales
+    description: "Analyze sales data and generate insights"
+    schema:
+      type: object
+      required: [store_domain, date_range]
+      properties:
+        store_domain:
+          type: string
+        date_range:
+          type: object
+          required: [start_date, end_date]
+          properties:
+            start_date:
+              type: string
+              format: date
+            end_date:
+              type: string
+              format: date
+        granularity:
+          type: string
+          enum: [day, week, month]
+          default: day
+        include_products:
+          type: boolean
+          default: true
+        include_customers:
+          type: boolean
+          default: false
+    resolver: analyzeSales
+    graphql:
+      query: |
+        query AnalyzeSales($query: String, $first: Int!) {
+          orders(query: $query, first: $first, sortKey: CREATED_AT) {
+            edges {
+              node {
+                id
+                totalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                createdAt
+                lineItems(first: 5) {
+                  edges {
+                    node {
+                      title
+                      quantity
+                      variant {
+                        product {
+                          id
+                          title
+                          productType
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+  # ============================================
+  # TOOL: detect_inventory_risk
+  # ============================================
+  - name: detect_inventory_risk
+    description: "Identify products with low inventory or stock issues"
+    schema:
+      type: object
+      required: [store_domain]
+      properties:
+        store_domain:
+          type: string
+        threshold:
+          type: integer
+          default: 10
+          description: "Alert when inventory below this number"
+        product_ids:
+          type: array
+          items:
+            type: string
+          description: "Specific products to check (empty = all)"
+    resolver: detectInventoryRisk
+    graphql:
+      query: |
+        query DetectInventoryRisk($first: Int!, $query: String) {
+          products(first: $first, query: $query) {
+            edges {
+              node {
+                id
+                title
+                handle
+                totalInventory
+                variants(first: 10) {
+                  edges {
+                    node {
+                      id
+                      title
+                      inventoryQuantity
+                      sku
+                      inventoryItem {
+                        id
+                        tracked
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+  # ============================================
+  # TOOL: generate_product_content
+  # ============================================
+  - name: generate_product_content
+    description: "Generate SEO-optimized product descriptions and content"
+    schema:
+      type: object
+      required: [store_domain, product_id, content_type]
+      properties:
+        store_domain:
+          type: string
+        product_id:
+          type: string
+          description: "Shopify product ID (GID)"
+        content_type:
+          type: string
+          enum: [description, seo_title, seo_description, meta_keywords, alt_text]
+        tone:
+          type: string
+          enum: [professional, casual, playful, luxury]
+          default: professional
+        keywords:
+          type: array
+          items:
+            type: string
+          description: "SEO keywords to include"
+    resolver: generateProductContent
+    requires_ai: true
+    ai_prompt_template: |
+      Generate {{ content_type }} for Shopify product:
+      
+      Product: {{ product_title }}
+      Type: {{ product_type }}
+      Tags: {{ tags }}
+      
+      Requirements:
+      - Tone: {{ tone }}
+      - Include keywords: {{ keywords | join(', ') }}
+      - Shopify-optimized format
+      - Engaging and conversion-focused
+
+  # ============================================
+  # TOOL: update_product
+  # ============================================
+  - name: update_product
+    description: "Update existing product in Shopify"
+    schema:
+      type: object
+      required: [store_domain, product_id, input]
+      properties:
+        store_domain:
+          type: string
+        product_id:
+          type: string
+        input:
+          type: object
+          properties:
+            title:
+              type: string
+            descriptionHtml:
+              type: string
+            vendor:
+              type: string
+            productType:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            status:
+              type: string
+              enum: [ACTIVE, DRAFT, ARCHIVED]
+    resolver: updateProduct
+    graphql:
+      mutation: |
+        mutation UpdateProduct($input: ProductInput!) {
+          productUpdate(input: $input) {
+            product {
+              id
+              title
+              updatedAt
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+
+  # ============================================
+  # TOOL: create_product
+  # ============================================
+  - name: create_product
+    description: "Create new product in Shopify"
+    schema:
+      type: object
+      required: [store_domain, input]
+      properties:
+        store_domain:
+          type: string
+        input:
+          type: object
+          required: [title]
+          properties:
+            title:
+              type: string
+            descriptionHtml:
+              type: string
+            vendor:
+              type: string
+            productType:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            variants:
+              type: array
+              items:
+                type: object
+            images:
+              type: array
+              items:
+                type: object
+    resolver: createProduct
+    graphql:
+      mutation: |
+        mutation CreateProduct($input: ProductInput!) {
+          productCreate(input: $input) {
+            product {
+              id
+              title
+              handle
+              createdAt
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+
+# ============================================
+# RESOLVER FUNCTIONS
+# ============================================
+resolvers:
+  getProducts:
+    pre_execution:
+      - validate_store_access
+      - check_rate_limit
+    post_execution:
+      - format_product_data
+      - cache_results_ttl: 300
+    error_handling:
+      - ShopifyAuthError: refresh_token_and_retry
+      - ShopifyRateLimitError: exponential_backoff
+      - GraphQLError: log_and_return_empty
+
+  getOrders:
+    pre_execution:
+      - validate_store_access
+      - validate_date_range
+    post_execution:
+      - calculate_order_metrics
+      - format_currency
+    error_handling:
+      - ShopifyAuthError: refresh_token_and_retry
+      - ShopifyThrottledError: wait_and_retry
+
+  analyzeSales:
+    pre_execution:
+      - validate_date_range
+      - check_data_volume
+    post_execution:
+      - aggregate_metrics
+      - generate_insights
+      - create_report_summary
+    requires:
+      - frankcmo_approval_if_public_report: true
+
+  detectInventoryRisk:
+    pre_execution:
+      - set_alert_thresholds
+    post_execution:
+      - filter_low_stock
+      - categorize_risk_level
+      - send_alerts_if_critical
+    alert_conditions:
+      - inventory < threshold: WARNING
+      - inventory == 0: CRITICAL
+      - variant_discontinued: NOTICE
+
+  generateProductContent:
+    pre_execution:
+      - fetch_product_data
+    ai_generation:
+      model: kimi-k2.5:cloud
+      temperature: 0.7
+      max_tokens: 500
+    post_execution:
+      - validate_seo_length
+      - format_for_shopify
+    requires_approval:
+      - if_store_is_live: true
+
+  updateProduct:
+    pre_execution:
+      - validate_product_exists
+      - check_write_permissions
+    post_execution:
+      - log_change_audit
+      - invalidate_cache
+    requires_approval:
+      - if_changing_prices: true
+      - if_updating_inventory: false
+
+  createProduct:
+    pre_execution:
+      - validate_required_fields
+      - check_duplicate_titles
+    post_execution:
+      - index_for_search
+      - notify_frankcmo
+    requires_approval:
+      - always: true
+
+# ============================================
+# WEBHOOK HANDLERS
+# ============================================
+webhook_handlers:
+  handle_order_created:
+    action: analyze_and_notify
+    process:
+      - extract_order_data
+      - calculate_revenue_impact
+      - check_high_value_customer
+      - notify_relevant_agent:
+          if_value > $100: frankcmo
+          if_value > $500: frank
+    memory_logging:
+      - store_order_summary
+      - update_daily_metrics
+
+  handle_product_updated:
+    action: sync_and_log
+    process:
+      - compare_changes
+      - log_to_audit_trail
+      - notify_if_inventory_critical
+    memory_logging:
+      - store_product_snapshot
+      - track_change_history
+
+  handle_product_created:
+    action: index_and_notify
+    process:
+      - validate_product_completeness
+      - suggest_seo_optimizations
+      - notify_frankcmo
+
+  handle_inventory_updated:
+    action: check_thresholds
+    process:
+      - compare_to_previous
+      - calculate_days_remaining
+      - if_low_stock: notify_frank + frankcmo
+      - if_out_of_stock: urgent_alert
+
+# ============================================
+# MULTI-AGENT CONFIGURATION
+# ============================================
+multi_agent:
+  coordination:
+    default: parallel
+    analyze_sales: sequential
+  attribution:
+    log_agent_id: true
+    log_execution_time: true
+    log_query_cost: true
+  shared_state:
+    cache_key_prefix: "shopify_{store_domain}"
+    ttl_seconds: 300
+
+# ============================================
+# SECURITY & CREDENTIALS
+# ============================================
+security:
+  credential_storage:
+    type: encrypted_file
+    location: "~/.openclaw/credentials/shopify/"
+    encryption: aes256
+  access_control:
+    stores:
+      doodletype.myshopify.com:
+        allowed_agents: [frank, rodzilla, frankcmo]
+        read_only: [frankcmo]
+      growbiz.myshopify.com:
+        allowed_agents: [frank, rodzilla, frankcmo, frankcfo]
+  audit_logging:
+    enabled: true
+    log_all_mutations: true
+    retention_days: 90
+
+# ============================================
+# ERROR HANDLING
+# ============================================
+error_handling:
+  retry_policies:
+    network_error:
+      max_retries: 3
+      backoff_strategy: exponential
+      base_delay_ms: 1000
+    rate_limit_error:
+      max_retries: 5
+      backoff_strategy: linear
+      base_delay_ms: 2000
+    auth_error:
+      max_retries: 1
+      action: notify_rod_immediately
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout_ms: 30000
+
+# ============================================
+# MONITORING
+# ============================================
+monitoring:
+  metrics:
+    - query_count
+    - query_cost_total
+    - webhook_events_processed
+    - cache_hit_rate
+    - error_rate
+  alerting:
+    - if_error_rate > 5%: notify_frank
+    - if_webhook_backlog > 100: notify_rod
+    - if_daily_cost > $1: log_warning
+
+# ============================================
+# PREFERRED MODEL
+# ============================================
+preferred_model: deepseek-chat
+escalation_model: deepseek-r1
+
+---
+# USAGE EXAMPLES
+# ============================================
+
+examples:
+  - name: "Get all products from DoodleType"
+    tool: get_products
+    params:
+      store_domain: "doodletype.myshopify.com"
+      limit: 50
+      status: ACTIVE
+    
+  - name: "Analyze last 30 days sales"
+    tool: analyze_sales
+    params:
+      store_domain: "doodletype.myshopify.com"
+      date_range:
+        start_date: "2026-02-20"
+        end_date: "2026-03-21"
+      include_products: true
+    
+  - name: "Check low inventory"
+    tool: detect_inventory_risk
+    params:
+      store_domain: "doodletype.myshopify.com"
+      threshold: 5
+    
+  - name: "Generate SEO description"
+    tool: generate_product_content
+    params:
+      store_domain: "doodletype.myshopify.com"
+      product_id: "gid://shopify/Product/123456789"
+      content_type: description
+      tone: playful
+      keywords: ["handmade", "character design", "kids art"]

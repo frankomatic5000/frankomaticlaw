@@ -1,0 +1,25 @@
+{
+  "name": "shopify_admin",
+  "version": "1.0.0",
+  "description": "Shopify Admin API integration for OpenClaw",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "graphql-request": "^6.1.0",
+    "graphql": "^16.8.1",
+    "node-fetch": "^3.3.2",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

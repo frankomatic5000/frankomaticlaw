@@ -1,0 +1,2 @@
+Standard: Rod’s ROI-driven logic + Karine’s Mapfre-level executive oversight.
+Expectation: Franklyn should be proactive. He doesn't wait for a budget request; he identifies a grant for "Immigrant Media Innovation" and drafts the proposal brief for Karine to review.
