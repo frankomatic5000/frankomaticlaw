@@ -1,0 +1,143 @@
+# ═══════════════════════════════════════════════════════════════
+# INFERENCE ROUTER — Tiered Model Escalation
+# GrowBiz Media · OpenClaw Platform
+# ═══════════════════════════════════════════════════════════════
+
+router:
+  name: inference_router
+  description: >
+    Runs FIRST on every request. Classifies complexity, scores confidence,
+    routes to cheapest capable model. Budget-aware. Never skipped.
+  execution_order: 1
+  mandatory: true
+
+# ── Tier Definitions ────────────────────────────────────────────
+tiers:
+  tier_1:
+    name: "Ollama Pro Cloud"
+    cost_model: flat
+    monthly_cost: 20.00
+    expected_share: "80-85%"
+    models:
+      - name: kimi-k2.5:cloud
+        role: default_fallback
+        domains: [general, family, vision, social]
+        agents: [frank, jarbas]
+      - name: minimax-m2.7:cloud
+        role: code_specialist
+        domains: [code, architecture, github, devops]
+        agents: [frank]
+      - name: qwen3.5:cloud
+        role: content_specialist
+        domains: [content, email, grants, editorial, multimodal]
+        agents: [frank, jarbas]
+
+  tier_2:
+    name: "DeepSeek API"
+    cost_model: usage
+    monthly_estimate: "3-12"
+    expected_share: "10-15%"
+    escalation_trigger:
+      confidence_below: 0.75
+      complexity_above: L3
+    models:
+      - name: deepseek-chat
+        role: complex_reasoning
+        use_for: [complex_analysis, grant_writing, financial_reports]
+      - name: deepseek-reasoner
+        role: deep_thinking
+        use_for: [forecasting, architecture_decisions, complex_refactoring]
+    cache_policy:
+      mandatory: true
+      format: "Reuse task #{task_id} context summary: {summary}"
+      savings_estimate: "40-60% token reduction"
+
+  tier_3:
+    name: "Gemini 2.5 Pro"
+    cost_model: usage
+    monthly_estimate: "2-6"
+    expected_share: "<5%"
+    escalation_trigger:
+      tier_2_flag: true
+      vision_search_failure: true
+      confidence_below: 0.50
+    weekly_cap: 8.00
+    models:
+      - name: gemini-2.5-pro
+        role: last_resort
+        use_for: [vision_failures, search_failures, extreme_complexity]
+
+# ── Routing Logic ───────────────────────────────────────────────
+routing:
+  pre_processing:
+    - if: "input_tokens > 3000"
+      action: auto_summarize
+      note: "Compress before routing"
+
+    - if: "agent == jarbas"
+      action: force_tier_1
+      model: kimi-k2.5:cloud
+      pre_fill: true
+      transcribe_voice: true
+
+  classification:
+    complexity_levels: [L1, L2, L3, L4]
+    confidence_range: [0.0, 1.0]
+    domains:
+      - code
+      - social
+      - email
+      - finance
+      - editorial
+      - grants
+      - family
+      - general
+
+  decision_tree:
+    - if: "confidence > 0.75 AND complexity in [L1, L2, L3]"
+      route: tier_1
+      model_selection:
+        code: minimax-m2.7:cloud
+        social: kimi-k2.5:cloud
+        vision: kimi-k2.5:cloud
+        email: qwen3.5:cloud
+        content: qwen3.5:cloud
+        grants: qwen3.5:cloud
+        default: kimi-k2.5:cloud
+
+    - if: "confidence 0.50-0.75 OR complexity in [L3, L4]"
+      route: tier_2
+      model_selection:
+        normal: deepseek-chat
+        deep_thinking: deepseek-reasoner
+      cache: mandatory
+
+    - if: "confidence < 0.50 OR vision_search_failure"
+      route: tier_3
+      pre_check: "weekly_cap_remaining > 0"
+
+# ── Guards ──────────────────────────────────────────────────────
+guards:
+  auto_summarize:
+    trigger: "input_tokens > 3000"
+    action: "Compress context before routing"
+
+  latency_skip:
+    trigger: "ollama_pro_response > 30s"
+    action: "Skip to DeepSeek"
+
+  cache_enforce:
+    trigger: "deepseek_repeated_context"
+    action: "Force context summary reuse"
+
+  budget_check:
+    trigger: "every_routing_decision"
+    actions:
+      - if: "monthly_spend > 35"
+        action: pause_tier_3
+        alert: true
+      - if: "monthly_spend > 48"
+        action: abort_non_tier_1
+        alert: critical
+      - if: "gemini_weekly > 8"
+        action: hard_stop_tier_3

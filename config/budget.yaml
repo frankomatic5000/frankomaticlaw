@@ -1,0 +1,79 @@
+# ═══════════════════════════════════════════════════════════════
+# BUDGET CONFIGURATION
+# GrowBiz Media · OpenClaw Platform
+# ═══════════════════════════════════════════════════════════════
+
+budget:
+  currency: USD
+  period: monthly
+  hard_cap: 50.00
+
+  allocation:
+    ollama_pro:
+      type: flat
+      amount: 20.00
+      share: "40%"
+      note: "3 cloud model slots — kimi, minimax, qwen"
+
+    deepseek_api:
+      type: usage
+      estimate_low: 3.00
+      estimate_high: 12.00
+      share: "20%"
+      cache_savings: "40-60%"
+      note: "Tier 2 — complex reasoning and deep thinking"
+
+    gemini_pro:
+      type: usage
+      estimate_low: 2.00
+      estimate_high: 6.00
+      share: "10%"
+      weekly_cap: 8.00
+      note: "Tier 3 — last resort, vision/search failures only"
+
+    hosting:
+      type: flat
+      estimate_low: 5.00
+      estimate_high: 8.00
+      share: "15%"
+      note: "Docker/VPS for OpenClaw gateway"
+
+    buffer:
+      type: reserve
+      estimate_low: 2.00
+      estimate_high: 5.00
+      share: "10%"
+      note: "Headroom for spikes"
+
+  target_range:
+    low: 32.00
+    high: 46.00
+
+  guards:
+    weekly_check:
+      schedule: "every Monday 9am EST"
+      action: "Log cumulative spend, report to Rod"
+
+    pause_tier_3:
+      trigger_monthly_spend: 35.00
+      action: "Pause Gemini, alert Rod"
+      severity: warning
+
+    abort_non_tier_1:
+      trigger_monthly_spend: 48.00
+      action: "Abort all non-Tier-1, require manual approval"
+      severity: critical
+
+    gemini_weekly_cap:
+      trigger_weekly_spend: 8.00
+      action: "Hard stop Tier 3 for the week"
+      severity: critical
+
+    deepseek_cache:
+      trigger: "repeated_context_detected"
+      action: "Force cache reuse"
+      savings: "40-60% token reduction"
+
+  approval_caps:
+    jarbas_per_action: 500.00
+    note: "Auto-forward to Frank if any single action > $500"

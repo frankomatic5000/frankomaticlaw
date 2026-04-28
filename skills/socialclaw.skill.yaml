@@ -1,0 +1,187 @@
+# ═══════════════════════════════════════════════════════════════
+# SKILL: SocialClaw — Multi-Brand Social Media Intelligence
+# GrowBiz Media · OpenClaw AgentSkill · ClawHub-compatible
+# ═══════════════════════════════════════════════════════════════
+
+name: socialclaw
+version: "2.0.0"
+description: >
+  Social media engine for the entire GrowBiz Media portfolio.
+  Scrapes trends, analyzes engagement, drafts brand-aware content,
+  and publishes across platforms. Knows that Imigrou is pt-BR diaspora
+  content, GrowBiz Services is professional SEO outreach, DoodleType
+  is creative/visual, and GrowBiz general is thought-leadership.
+  Integrates with ClipIQ output for short-form content scheduling.
+author: rorezend
+license: MIT
+
+inputs:
+  - name: action
+    type: enum
+    options: [scrape, analyze, draft, publish, schedule, metrics,
+             competitor_watch, hashtag_research, repurpose]
+    required: true
+
+  - name: brand
+    type: enum
+    options: [imigrou, growbiz-media, growbiz-services, doodletype,
+             personal-rod, personal-karine]
+    required: true
+
+  - name: platform
+    type: enum
+    options: [youtube, instagram, tiktok, x-twitter, linkedin, threads, all]
+    default: all
+
+  - name: content
+    type: string
+    required: false
+
+  - name: media
+    type: file
+    required: false
+
+  - name: tone
+    type: enum
+    options: [professional, casual, inspirational, sarcastic,
+             diaspora-authentic, seo-focused]
+    default: casual
+
+  - name: language
+    type: enum
+    options: [en, pt-br, bilingual]
+    default: en
+
+  - name: clipiq_source
+    type: string
+    description: ClipIQ clip ID to repurpose into social posts
+    required: false
+
+outputs:
+  - name: result
+    type: object
+    schema:
+      action_completed: string
+      content_draft: string
+      analysis_summary: string
+      engagement_metrics: object
+      competitor_insights: string
+      hashtags: array
+      approval_status: enum[pending, approved, rejected]
+      scheduled_at: datetime
+
+logic:
+  type: multi_step
+  steps:
+    scrape:
+      prompt_template: |
+        Scrape social content relevant to {brand} on {platform}.
+        Brand context:
+        - imigrou: Brazilian diaspora, immigration stories, pt-BR
+        - growbiz-media: immigrant entrepreneurship, AI tools, legacy building
+        - growbiz-services: local SEO, small business growth, B2B
+        - doodletype: creative design, digital products, visual content
+        Topic/URL: {content}
+        Return: key trends, sentiment, engagement signals, content gaps.
+      model: kimi-k2.5:cloud
+
+    analyze:
+      prompt_template: |
+        Analyze this content/image for {brand}.
+        What's working? What's not? What would Rod or Karine do differently?
+        Content: {content}
+        Media: {media}
+        Platform: {platform}
+      model: kimi-k2.5:cloud
+
+    draft:
+      prompt_template: |
+        Draft a {platform} post for {brand}.
+        Language: {language}
+        Tone: {tone}
+        Topic: {content}
+
+        VOICE RULES BY BRAND:
+        - imigrou: Karine's voice. Warm, authentic, diaspora-aware. pt-BR primary.
+          NEVER sound corporate. Sound like a friend who's been through it.
+        - growbiz-media: Rod + Karine together. Ambitious but accessible.
+          "Immigrant family building a media empire" energy.
+        - growbiz-services: Professional but human. SEO-aware.
+          Speak to small business owners who are skeptical of marketing agencies.
+        - doodletype: Creative, playful, visual-forward.
+
+        Keep it punchy. No hashtag spam (max 5 relevant ones).
+      model: kimi-k2.5:cloud
+
+    repurpose:
+      prompt_template: |
+        Take this ClipIQ output (clip ID: {clipiq_source}) and create
+        platform-specific posts for {platform}.
+        Adapt captions, aspect ratio callouts, and CTA for each platform.
+        Preserve Karine's editorial voice from the original content.
+      model: kimi-k2.5:cloud
+
+    publish:
+      requires_approval: true
+      approval_by: [rod, karine]
+      api_integration: platform_api
+
+    schedule:
+      requires_approval: true
+      approval_by: [rod, karine]
+
+    metrics:
+      prompt_template: |
+        Pull engagement metrics for {brand} on {platform}.
+        Compare to last period. Highlight: what grew, what dropped, why.
+        Give Rod a "so what" — actionable next step, not just numbers.
+      model: kimi-k2.5:cloud
+      auto_execute: true
+
+    competitor_watch:
+      prompt_template: |
+        Monitor competitors in {brand}'s space on {platform}.
+        For imigrou: other Brazilian diaspora creators
+        For growbiz-services: local SEO agencies targeting same markets
+        For doodletype: similar creative digital product brands
+        What are they doing that we should steal (ethically)?
+      model: kimi-k2.5:cloud
+
+    hashtag_research:
+      prompt_template: |
+        Research optimal hashtags for {brand} on {platform}.
+        Language: {language}
+        Mix: 2 broad + 2 niche + 1 branded. No spam.
+      model: kimi-k2.5:cloud
+
+access_control:
+  frank:
+    allowed: [scrape, analyze, draft, publish, schedule, metrics,
+              competitor_watch, hashtag_research, repurpose]
+  jarbas:
+    allowed: [scrape, analyze, draft, publish, schedule, metrics,
+              competitor_watch, hashtag_research, repurpose]
+    note: "Karine is the content queen — full social access"
+
+metadata:
+  category: social-media
+  tags: [social, imigrou, diaspora, content, vision, analytics,
+         clipiq-integration]
+
+triggers:
+  - keyword: "post"
+  - keyword: "social"
+  - keyword: "imigrou post"
+  - keyword: "schedule content"
+  - keyword: "engagement"
+  - keyword: "competitor"
+  - keyword: "repurpose clip"
+
+permissions:
+  - internet_access
+  - platform_api_write
+  - vision_processing
+  - memory_read
+  - clipiq_api_read
+
+preferred_model: kimi-k2.5:cloud

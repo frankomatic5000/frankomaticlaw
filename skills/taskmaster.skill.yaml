@@ -1,0 +1,110 @@
+# ═══════════════════════════════════════════════════════════════
+# SKILL: TaskMaster — Central Task & Project Backbone
+# GrowBiz Media · OpenClaw AgentSkill · ClawHub-compatible
+# ═══════════════════════════════════════════════════════════════
+
+name: taskmaster
+version: "2.0.0"
+description: >
+  Central nervous system for GrowBiz Media operations. Tracks tasks
+  across all portfolio brands — Imigrou, Studios, Magazine, ClipIQ,
+  Vaptlux, Services, DoodleType, ZecaOS. Every action flows through
+  TaskMaster with brand-aware routing.
+author: rorezend
+license: MIT
+
+inputs:
+  - name: action
+    type: enum
+    options: [create, update, close, list, get, prioritize]
+    required: true
+
+  - name: title
+    type: string
+    required: true
+
+  - name: owner
+    type: enum
+    options: [rod, karine, both]
+    default: rod
+
+  - name: brand
+    type: enum
+    options: [imigrou, studios, magazine, clipiq, vaptlux, services,
+             doodletype, zecaos, growbiz-general, family]
+    required: true
+
+  - name: domain
+    type: enum
+    options: [content, production, code, seo, editorial, finance,
+             grants, social, client-work, family, general]
+
+  - name: urgency
+    type: enum
+    options: [low, medium, high, critical]
+    default: medium
+
+  - name: parent_task_id
+    type: string
+    required: false
+
+  - name: revenue_impact
+    type: enum
+    options: [none, indirect, direct]
+    default: none
+
+outputs:
+  - name: task_object
+    type: object
+    schema:
+      id: string
+      owner: string
+      brand: string
+      status: enum[open, in-progress, blocked, done]
+      domain: string
+      model_tier: integer
+      confidence: float
+      approval_needed: boolean
+      revenue_impact: string
+      summary: string
+      created_at: datetime
+      updated_at: datetime
+      parent_id: string
+
+logic:
+  type: state_machine
+  rules:
+    - auto_increment_id: "TASK-{counter:04d}"
+    - if owner == "karine" AND brand in ["imigrou", "studios", "family"]:
+        approval_needed: false
+    - if brand == "services" AND domain == "client-work":
+        urgency: high
+        note: "Client-facing tasks are always high priority"
+    - if revenue_impact == "direct":
+        flag: "💰 Revenue task — prioritize"
+    - on_create: notify_owner_via_channel
+    - on_create: tag_to_brand_project_memory
+
+access_control:
+  frank:
+    allowed: [create, update, close, list, get, prioritize]
+  jarbas:
+    allowed: [create, update, close, list, get, prioritize]
+
+metadata:
+  category: orchestration
+  tags: [tasks, projects, portfolio, multi-brand, state-management]
+
+triggers:
+  - keyword: "create task"
+  - keyword: "new task"
+  - keyword: "task for imigrou"
+  - keyword: "task for clipiq"
+  - keyword: "what's pending"
+
+permissions:
+  - memory_read
+  - memory_write
+  - notify_channels
+
+preferred_model: any

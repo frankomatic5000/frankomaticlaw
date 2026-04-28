@@ -1,0 +1,49 @@
+# OpenClaw Runtime Configuration
+# Frank + Jarbas · GrowBiz Media
+# ═══════════════════════════════════════════════════
+
+[gateway]
+name = frankomaticlaw
+port = 18789
+protocol = websocket
+mode = multi-agent
+
+[agents]
+primary = Frankomatic5007
+secondary = Jarbas
+max_agents = 2
+subagents = false
+
+[soul]
+path = SOUL.md
+
+[skills]
+directory = skills/
+autoload = true
+format = clawhub-yaml
+
+[memory]
+backend = markdown
+directory = memory/
+session_ttl = conversation_end
+project_prune_days = 30
+
+[models]
+provider_primary = ollama_pro_cloud
+provider_tier2 = deepseek
+provider_tier3 = gemini
+config = config/router.yaml
+
+[channels]
+discord_config = config/agents.yaml
+whatsapp_config = config/agents.yaml
+
+[budget]
+config = config/budget.yaml
+hard_cap_monthly = 50
+currency = USD
+
+[security]
+require_approval_for_writes = true
+env_file = .env
+never_commit_secrets = true
