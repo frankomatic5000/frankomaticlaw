@@ -152,6 +152,75 @@ Pending OpenClaw feature. Will use `openclaw.json` agent registry for automatic 
 
 ---
 
+### Pattern E: Karine's Fast Lane (Cultural Pre-Approval Routing)
+For Aesthetic Soul tasks where Karine wants speed without CEO bottleneck.
+
+**Flow:**
+```
+Karine asks Jarbas
+    ↓
+Jarbas validates cultural fit (Zosima Protocol)
+    ↓
+Jarbas sends ARP-4.0 TASK_BRIEF to Frank
+    ↓
+Frank auto-spawns specialist (no approval needed for Fast Lane)
+    ↓
+Specialist completes work, reports to Frank
+    ↓
+Frank notifies Jarbas/Karine
+```
+
+**Jarbas → Frank Routing Template:**
+```markdown
+# AGENT ACTION (ARP-4.0)
+Type: TASK_BRIEF
+From: jarbas
+To: frank
+Project: [brand]
+Priority: [P1-P3]
+Status: NEW
+Task-ID: [TASK-XXXX]
+Budget: <$20
+Via: Karine Fast Lane
+PreApproved: true
+
+Request: Spawn [rodzilla|davinci|severino] for [task]
+Cultural Check: ✅ Passed — aligns with Zosima Protocol
+AutoApprove: Yes (within Fast Lane budget)
+```
+
+**Frank's Auto-Spawn Action:**
+```bash
+# Frank receives Fast Lane TASK_BRIEF from Jarbas
+# No approval needed — cultural pre-check done by Jarbas
+# Frank spawns immediately
+
+sessions_spawn(
+  runtime="subagent",
+  cwd="/Users/frankomatic5007/.openclaw/workspace/DaVinci",
+  task="Karine Fast Lane: [task description per Jarbas brief]"
+)
+```
+
+**What Jarbas CAN Do Directly:**
+- ✅ Cultural pre-approval (validates Zosima Protocol fit)
+- ✅ Veto tasks that fail cultural check
+- ✅ Draft creative briefs for specialists
+- ✅ Review and soul-audit completed output
+
+**What Requires Frank (CEO):**
+- ❌ Direct agent spawn (OpenClaw blocks non-main agentId)
+- ❌ Budget redistribution
+- ❌ Cross-strategic-unit routing (Aesthetic Soul → Velocity Engine)
+
+**Fallback if Frank Unavailable:**
+1. Jarbas queues TASK_BRIEF
+2. If no response in 10 minutes, auto-log to ByteRover
+3. Frank reviews async and spawns retroactively
+4. If URGENT: Jarbas escalates to direct WhatsApp to Rod
+
+---
+
 ## 5. Message Types (ARP-4.0)
 
 | Type | Purpose | Direction |
@@ -195,12 +264,87 @@ Frank MUST stop and wait for explicit approval for:
 
 ## 8. Karine's Fast Lane (v4.1 Appendix)
 
-Jarbas MAY spawn directly to:
-- **RodZilla:** UI tweaks, copy fixes, vibe coding (<$20)
-- **DaVinci:** Marketing copy, social posts (<$10)
-- **Severino:** Family calendar, reminders (Any)
+> **Important:** Due to OpenClaw 2026.4.26 limitation (`sessions_spawn` only supports `agentId="main"`), Jarbas **cannot directly spawn** other agents. The Fast Lane is implemented as **ARP routing through Frank** with cultural pre-approval.
 
-Must include `Via: Karine Fast Lane` and CC Frank.
+### How It Actually Works
+
+```
+Karine asks Jarbas
+    ↓
+Jarbas validates cultural fit (Soul Audit)
+    ↓
+Jarbas sends ARP-4.0 TASK_BRIEF to Frank
+    ↓
+Frank spawns the specialist (no approval needed for Fast Lane tasks)
+    ↓
+Specialist completes work, reports to Frank
+    ↓
+Frank notifies Jarbas/Karine
+```
+
+### Fast Lane Routing Template
+
+```markdown
+# AGENT ACTION (ARP-4.0)
+Type: TASK_BRIEF
+From: jarbas
+To: frank
+Project: [brand]
+Priority: [P1-P3]
+Status: NEW
+Task-ID: [TASK-XXXX]
+Budget: <$20
+Via: Karine Fast Lane
+PreApproved: true
+
+Request: Spawn [rodzilla|davinci|severino] for [task]
+Cultural Check: ✅ Passed — aligns with Zosima Protocol
+AutoApprove: Yes (within Fast Lane budget)
+```
+
+### Routing Rules
+
+| Agent | Jarbas Routes To | Budget | Frank Action |
+|-------|-----------------|--------|--------------|
+| **RodZilla** | Frank → RodZilla | <$20 | Spawn immediately, no approval |
+| **DaVinci** | Frank → DaVinci | <$10 | Spawn immediately, no approval |
+| **Severino** | Frank → Severino | Any | Spawn immediately, no approval |
+
+### What Jarbas CAN Do Directly
+
+✅ **Cultural pre-approval** — Validates task fits Karine's voice
+✅ **Veto** — Blocks tasks that fail Zosima Protocol
+✅ **Draft specs** — Provides creative brief for specialist
+✅ **Review output** — Soul audit on completed work
+
+### What Requires Frank (CEO) Spawn
+
+❌ **Direct agent spawn** — OpenClaw blocks non-main agentId
+❌ **Budget redistribution** — Only Frank can move $ between agents
+❌ **Cross-unit tasks** — Aesthetic Soul → Velocity Engine needs CEO routing
+
+### Implementation Note
+
+```python
+# Jarbas sends to Frank (not direct spawn)
+sessions_send(
+  sessionKey="agent:main:discord:direct:1483206130426712115",
+  message="ARP-4.0 TASK_BRIEF... Via: Karine Fast Lane"
+)
+
+# Frank spawns the specialist
+sessions_spawn(
+  runtime="subagent",
+  task="Execute per Jarbas cultural brief..."
+)
+```
+
+### Fallback: If Frank is Unavailable
+
+1. Jarbas queues TASK_BRIEF for Frank
+2. If no response in 10 minutes, auto-spawn (within budget)
+3. Log to ByteRover for audit
+4. Frank reviews async
 
 ---
 
